@@ -458,6 +458,41 @@ header h1 {
     width: 100%;
 }
 
+/* Read-only Mode Styles */
+.readonly-mode .meal-item {
+    justify-content: flex-start;
+}
+
+.readonly-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-left: 10px;
+    vertical-align: middle;
+}
+
+.create-own-btn {
+    margin-top: 20px !important;
+}
+
+.readonly-mode header {
+    margin-bottom: 48px;
+}
+
+.readonly-mode .subtitle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     body {

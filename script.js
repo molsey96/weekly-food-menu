@@ -9,6 +9,9 @@ let menuData = {
     sunday: { breakfast: '', lunch: '', dinner: '' }
 };
 
+// Read-only mode flag
+let isReadOnlyMode = false;
+
 // DOM Elements
 const modal = document.getElementById('mealModal');
 const shareModal = document.getElementById('shareModal');
@@ -157,12 +160,12 @@ document.querySelectorAll('.edit-btn').forEach(btn => {
     });
 });
 
-// Export menu as shareable link
+// Export menu as shareable link (read-only view)
 function exportMenuAsLink() {
     const menuJson = JSON.stringify(menuData);
     const encoded = btoa(encodeURIComponent(menuJson));
     const currentUrl = window.location.origin + window.location.pathname;
-    return `${currentUrl}?menu=${encoded}`;
+    return `${currentUrl}?view=${encoded}`;
 }
 
 // Export menu as formatted text
@@ -298,9 +301,73 @@ async function copyToClipboard(text) {
     }
 }
 
+// Enable read-only mode (hide edit controls)
+function enableReadOnlyMode() {
+    isReadOnlyMode = true;
+    
+    // Hide all edit buttons
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.style.display = 'none';
+    });
+    
+    // Hide control buttons
+    const controls = document.querySelector('.controls');
+    if (controls) {
+        controls.style.display = 'none';
+    }
+    
+    // Update header to show it's a shared menu
+    const header = document.querySelector('header');
+    if (header) {
+        const subtitle = header.querySelector('.subtitle');
+        if (subtitle) {
+            subtitle.innerHTML = '📋 Shared Menu <span class="readonly-badge">View Only</span>';
+        }
+        
+        // Add "Create Your Own" button
+        const createOwnBtn = document.createElement('a');
+        createOwnBtn.href = window.location.pathname;
+        createOwnBtn.className = 'btn btn-primary create-own-btn';
+        createOwnBtn.textContent = '✨ Create Your Own Menu';
+        createOwnBtn.style.marginTop = '15px';
+        createOwnBtn.style.display = 'inline-block';
+        createOwnBtn.style.textDecoration = 'none';
+        header.appendChild(createOwnBtn);
+    }
+    
+    // Add body class for additional styling
+    document.body.classList.add('readonly-mode');
+}
+
 // Check for menu in URL parameters (for sharing)
 function checkUrlForMenu() {
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // Check for read-only view parameter
+    const viewParam = urlParams.get('view');
+    if (viewParam) {
+        try {
+            const decoded = decodeURIComponent(atob(viewParam));
+            const importedData = JSON.parse(decoded);
+            
+            // Validate structure
+            const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            const requiredMeals = ['breakfast', 'lunch', 'dinner'];
+            
+            if (requiredDays.every(day => importedData[day] && 
+                requiredMeals.every(meal => importedData[day].hasOwnProperty(meal)))) {
+                // Load the shared menu (don't save to localStorage)
+                menuData = importedData;
+                updateDisplay();
+                enableReadOnlyMode();
+                return;
+            }
+        } catch (error) {
+            console.error('Failed to load shared menu from URL:', error);
+        }
+    }
+    
+    // Legacy support: Check for old import-style menu parameter
     const menuParam = urlParams.get('menu');
     if (menuParam) {
         try {
