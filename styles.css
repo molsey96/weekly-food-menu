@@ -422,6 +422,16 @@ header h1 {
     color: var(--success);
 }
 
+.share-buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.share-buttons .btn {
+    flex: 1;
+}
+
 .share-description {
     color: var(--text-secondary);
     font-size: 0.9375rem;

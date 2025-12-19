@@ -222,7 +222,7 @@
         </div>
 
         <div class="controls">
-            <button class="btn btn-success" id="syncBtn">☁️ Sync to Cloud</button>
+            <button class="btn btn-success" id="whatsappBtn">📱 Send to Cook (WhatsApp)</button>
             <button class="btn btn-primary" id="exportBtn">📤 Share Menu</button>
             <button class="btn btn-secondary" id="importBtn">📥 Import Menu</button>
             <button class="btn btn-secondary" id="clearWeekBtn">Clear Week</button>
@@ -236,11 +236,14 @@
             <h2 id="shareModalTitle">Share Weekly Menu</h2>
             <div class="share-options">
                 <div class="share-option cook-link-option">
-                    <h3>👨‍🍳 Cook's Permanent Link</h3>
-                    <p class="share-description">Give this link to your cook ONCE. They can refresh it anytime to see the latest menu. <strong>Make sure to click "Sync to Cloud" first!</strong></p>
+                    <h3>👨‍🍳 Send to Cook</h3>
+                    <p class="share-description">Share the current menu with your cook. Send a new link each time you update the menu.</p>
                     <div class="share-input-group">
-                        <input type="text" id="cookLinkInput" readonly placeholder="Click 'Sync to Cloud' button first...">
-                        <button class="btn btn-success" id="copyCookLinkBtn">Copy Cook Link</button>
+                        <input type="text" id="cookLinkInput" readonly placeholder="Click a button below to generate link...">
+                    </div>
+                    <div class="share-buttons">
+                        <button class="btn btn-success" id="whatsappShareBtn">📱 WhatsApp</button>
+                        <button class="btn btn-primary" id="copyCookLinkBtn">📋 Copy Link</button>
                     </div>
                 </div>
                 <div class="share-option">

@@ -12,9 +12,7 @@ let menuData = {
 // Read-only mode flag
 let isReadOnlyMode = false;
 
-// Cloud sync storage ID (will be created on first sync)
-let cloudBlobId = localStorage.getItem('cloudBlobId') || null;
-const BLOB_API_URL = 'https://jsonblob.com/api/jsonBlob';
+// Read-only mode flag is already declared above
 
 // DOM Elements
 const modal = document.getElementById('mealModal');
@@ -52,67 +50,69 @@ function saveMenu() {
     localStorage.setItem('weeklyMenu', JSON.stringify(menuData));
 }
 
-// Save menu to cloud (JSONBlob)
-async function saveToCloud() {
-    try {
-        if (cloudBlobId) {
-            // Update existing blob
-            const response = await fetch(`${BLOB_API_URL}/${cloudBlobId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(menuData)
-            });
-            if (!response.ok) throw new Error('Failed to update');
-            return true;
-        } else {
-            // Create new blob
-            const response = await fetch(BLOB_API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(menuData)
-            });
-            if (!response.ok) throw new Error('Failed to create');
-            
-            // Extract blob ID from x-jsonblob-id header (CORS-safe)
-            cloudBlobId = response.headers.get('x-jsonblob-id');
-            
-            // Fallback: try Location header
-            if (!cloudBlobId) {
-                const location = response.headers.get('Location');
-                if (location) {
-                    cloudBlobId = location.split('/').pop();
-                }
-            }
-            
-            // Final fallback: parse from response URL
-            if (!cloudBlobId && response.url) {
-                cloudBlobId = response.url.split('/').pop();
-            }
-            
-            if (!cloudBlobId) {
-                throw new Error('Could not get blob ID');
-            }
-            
-            localStorage.setItem('cloudBlobId', cloudBlobId);
-            return true;
-        }
-    } catch (error) {
-        console.error('Cloud sync failed:', error);
-        return false;
-    }
+// Generate shareable link for cook
+function generateCookLink() {
+    const encoded = encodeMenuCompact();
+    const currentUrl = window.location.origin + window.location.pathname;
+    return `${currentUrl}?v=${encoded}`;
 }
 
-// Load menu from cloud
-async function loadFromCloud(blobId) {
-    try {
-        const response = await fetch(`${BLOB_API_URL}/${blobId}`);
-        if (!response.ok) throw new Error('Failed to load');
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Failed to load from cloud:', error);
-        return null;
+// Send menu to cook via WhatsApp
+async function sendToCookWhatsApp() {
+    const longUrl = generateCookLink();
+    
+    // Try to shorten the URL first
+    let shareUrl = longUrl;
+    const shortUrl = await shortenUrl(longUrl);
+    if (shortUrl) {
+        shareUrl = shortUrl;
     }
+    
+    const message = encodeURIComponent(`🍽️ Weekly Menu Update!\n\nHere's this week's food menu:\n${shareUrl}`);
+    window.open(`https://wa.me/?text=${message}`, '_blank');
+}
+
+// Copy cook link to clipboard
+async function copyCookLink() {
+    const longUrl = generateCookLink();
+    
+    // Show loading state
+    const copyBtn = document.getElementById('copyCookLinkBtn');
+    if (copyBtn) {
+        copyBtn.textContent = '⏳ Generating...';
+        copyBtn.disabled = true;
+    }
+    
+    // Try to shorten the URL
+    let shareUrl = longUrl;
+    const shortUrl = await shortenUrl(longUrl);
+    if (shortUrl) {
+        shareUrl = shortUrl;
+    }
+    
+    // Update the input field
+    const cookLinkInput = document.getElementById('cookLinkInput');
+    if (cookLinkInput) {
+        cookLinkInput.value = shareUrl;
+    }
+    
+    // Copy to clipboard
+    if (await copyToClipboard(shareUrl)) {
+        if (copyBtn) {
+            copyBtn.textContent = '✓ Copied!';
+            setTimeout(() => {
+                copyBtn.textContent = 'Copy Cook Link';
+                copyBtn.disabled = false;
+            }, 2000);
+        }
+        return true;
+    }
+    
+    if (copyBtn) {
+        copyBtn.textContent = 'Copy Cook Link';
+        copyBtn.disabled = false;
+    }
+    return false;
 }
 
 // Show sync status message
@@ -395,46 +395,11 @@ async function openShareModal() {
         shareLinkInput.disabled = false;
     }
     
-    // Generate cook's permanent link
+    // Generate cook's link (using URL-based sharing)
     const cookLinkInput = document.getElementById('cookLinkInput');
     if (cookLinkInput) {
-        if (cloudBlobId) {
-            const cookUrl = `${window.location.origin}${window.location.pathname}?cook=${cloudBlobId}`;
-            cookLinkInput.value = cookUrl;
-            cookLinkInput.style.color = '';
-        } else {
-            cookLinkInput.value = '⚠️ Click "Sync to Cloud" button first!';
-            cookLinkInput.style.color = '#f59e0b';
-        }
-    }
-}
-
-// Sync menu to cloud and update cook link
-async function syncToCloud() {
-    const syncBtn = document.getElementById('syncBtn');
-    if (syncBtn) {
-        syncBtn.textContent = '⏳ Syncing...';
-        syncBtn.disabled = true;
-    }
-    
-    const success = await saveToCloud();
-    
-    if (success) {
-        showSyncStatus('✓ Menu synced to cloud!', true);
-        
-        // Update cook link input if share modal is open
-        const cookLinkInput = document.getElementById('cookLinkInput');
-        if (cookLinkInput && cloudBlobId) {
-            const cookUrl = `${window.location.origin}${window.location.pathname}?cook=${cloudBlobId}`;
-            cookLinkInput.value = cookUrl;
-        }
-    } else {
-        showSyncStatus('✗ Sync failed. Try again.', false);
-    }
-    
-    if (syncBtn) {
-        syncBtn.textContent = '☁️ Sync to Cloud';
-        syncBtn.disabled = false;
+        cookLinkInput.value = 'Click "WhatsApp" or "Copy Link" below...';
+        cookLinkInput.style.color = '#a8b3cf';
     }
 }
 
@@ -549,27 +514,8 @@ function enableReadOnlyMode() {
 }
 
 // Check for menu in URL parameters (for sharing)
-async function checkUrlForMenu() {
+function checkUrlForMenu() {
     const urlParams = new URLSearchParams(window.location.search);
-    
-    // Check for cook mode - load latest from cloud
-    const cookMode = urlParams.get('cook');
-    if (cookMode) {
-        const cloudData = await loadFromCloud(cookMode);
-        if (cloudData) {
-            menuData = cloudData;
-            updateDisplay();
-            enableReadOnlyMode();
-            // Update header for cook
-            const subtitle = document.querySelector('.subtitle');
-            if (subtitle) {
-                subtitle.innerHTML = '👨‍🍳 Cook\'s View <span class="readonly-badge">Auto-Updated</span>';
-            }
-            return;
-        } else {
-            alert('Could not load menu. The link may be invalid.');
-        }
-    }
     
     // Check for compact read-only view parameter (?v=)
     const compactViewParam = urlParams.get('v');
@@ -578,6 +524,11 @@ async function checkUrlForMenu() {
             menuData = decodeMenuCompact(compactViewParam);
             updateDisplay();
             enableReadOnlyMode();
+            // Update header for cook's view
+            const subtitle = document.querySelector('.subtitle');
+            if (subtitle) {
+                subtitle.innerHTML = '👨‍🍳 Cook\'s View <span class="readonly-badge">Menu</span>';
+            }
             return;
         } catch (error) {
             console.error('Failed to load shared menu from URL:', error);
@@ -639,28 +590,22 @@ if (cancelImportBtn) {
     cancelImportBtn.addEventListener('click', closeImportModal);
 }
 
-// Sync button
-const syncBtn = document.getElementById('syncBtn');
-if (syncBtn) {
-    syncBtn.addEventListener('click', syncToCloud);
+// WhatsApp button (main)
+const whatsappBtn = document.getElementById('whatsappBtn');
+if (whatsappBtn) {
+    whatsappBtn.addEventListener('click', sendToCookWhatsApp);
+}
+
+// WhatsApp button (in share modal)
+const whatsappShareBtn = document.getElementById('whatsappShareBtn');
+if (whatsappShareBtn) {
+    whatsappShareBtn.addEventListener('click', sendToCookWhatsApp);
 }
 
 // Copy cook link button
 const copyCookLinkBtn = document.getElementById('copyCookLinkBtn');
-const cookLinkInput = document.getElementById('cookLinkInput');
-if (copyCookLinkBtn && cookLinkInput) {
-    copyCookLinkBtn.addEventListener('click', async () => {
-        if (cookLinkInput.value.includes('Sync to Cloud')) {
-            alert('Please click "Sync to Cloud" first to generate a cook link.');
-            return;
-        }
-        if (await copyToClipboard(cookLinkInput.value)) {
-            copyCookLinkBtn.textContent = '✓ Copied!';
-            setTimeout(() => {
-                copyCookLinkBtn.textContent = 'Copy Cook Link';
-            }, 2000);
-        }
-    });
+if (copyCookLinkBtn) {
+    copyCookLinkBtn.addEventListener('click', copyCookLink);
 }
 
 if (copyLinkBtn && shareLinkInput) {
