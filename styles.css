@@ -141,6 +141,29 @@ header h1 {
     box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);
 }
 
+.btn-success {
+    background: var(--success);
+    color: var(--text-primary);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:hover {
+    background: #059669;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(16, 185, 129, 0.4);
+}
+
+.btn-success:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.btn-success:disabled {
+    background: rgba(16, 185, 129, 0.5);
+    cursor: not-allowed;
+    transform: none;
+}
+
 .week-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
@@ -154,15 +177,7 @@ header h1 {
     border-radius: 20px;
     padding: 28px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
-}
-
-.day-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.5);
-    border-color: rgba(59, 130, 246, 0.4);
-    background: var(--bg-card-hover);
 }
 
 .day-header {
@@ -398,6 +413,15 @@ header h1 {
     letter-spacing: -0.01em;
 }
 
+.cook-link-option {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.05));
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.cook-link-option h3 {
+    color: var(--success);
+}
+
 .share-description {
     color: var(--text-secondary);
     font-size: 0.9375rem;
@@ -475,14 +499,6 @@ header h1 {
     letter-spacing: 0.05em;
     margin-left: 10px;
     vertical-align: middle;
-}
-
-.create-own-btn {
-    margin-top: 20px !important;
-}
-
-.readonly-mode header {
-    margin-bottom: 48px;
 }
 
 .readonly-mode .subtitle {

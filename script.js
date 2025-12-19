@@ -12,6 +12,10 @@ let menuData = {
 // Read-only mode flag
 let isReadOnlyMode = false;
 
+// Cloud sync storage ID (will be created on first sync)
+let cloudBlobId = localStorage.getItem('cloudBlobId') || null;
+const BLOB_API_URL = 'https://jsonblob.com/api/jsonBlob';
+
 // DOM Elements
 const modal = document.getElementById('mealModal');
 const shareModal = document.getElementById('shareModal');
@@ -46,6 +50,71 @@ function loadMenu() {
 // Save menu to localStorage
 function saveMenu() {
     localStorage.setItem('weeklyMenu', JSON.stringify(menuData));
+}
+
+// Save menu to cloud (JSONBlob)
+async function saveToCloud() {
+    try {
+        if (cloudBlobId) {
+            // Update existing blob
+            const response = await fetch(`${BLOB_API_URL}/${cloudBlobId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(menuData)
+            });
+            if (!response.ok) throw new Error('Failed to update');
+            return true;
+        } else {
+            // Create new blob
+            const response = await fetch(BLOB_API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(menuData)
+            });
+            if (!response.ok) throw new Error('Failed to create');
+            
+            // Extract blob ID from Location header
+            const location = response.headers.get('Location');
+            cloudBlobId = location.split('/').pop();
+            localStorage.setItem('cloudBlobId', cloudBlobId);
+            return true;
+        }
+    } catch (error) {
+        console.error('Cloud sync failed:', error);
+        return false;
+    }
+}
+
+// Load menu from cloud
+async function loadFromCloud(blobId) {
+    try {
+        const response = await fetch(`${BLOB_API_URL}/${blobId}`);
+        if (!response.ok) throw new Error('Failed to load');
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Failed to load from cloud:', error);
+        return null;
+    }
+}
+
+// Show sync status message
+function showSyncStatus(message, isSuccess) {
+    let statusEl = document.getElementById('syncStatus');
+    if (!statusEl) {
+        statusEl = document.createElement('div');
+        statusEl.id = 'syncStatus';
+        statusEl.style.cssText = 'position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-weight:500;z-index:9999;transition:opacity 0.3s;';
+        document.body.appendChild(statusEl);
+    }
+    statusEl.textContent = message;
+    statusEl.style.background = isSuccess ? '#10b981' : '#ef4444';
+    statusEl.style.color = 'white';
+    statusEl.style.opacity = '1';
+    
+    setTimeout(() => {
+        statusEl.style.opacity = '0';
+    }, 3000);
 }
 
 // Format meal text as bullet points
@@ -160,12 +229,73 @@ document.querySelectorAll('.edit-btn').forEach(btn => {
     });
 });
 
+// Day and meal short codes for compact URLs
+const dayShortCodes = {
+    monday: 'mo', tuesday: 'tu', wednesday: 'we', thursday: 'th',
+    friday: 'fr', saturday: 'sa', sunday: 'su'
+};
+const dayFromShortCode = {
+    mo: 'monday', tu: 'tuesday', we: 'wednesday', th: 'thursday',
+    fr: 'friday', sa: 'saturday', su: 'sunday'
+};
+const mealShortCodes = { breakfast: 'b', lunch: 'l', dinner: 'd' };
+const mealFromShortCode = { b: 'breakfast', l: 'lunch', d: 'dinner' };
+
+// Encode menu to compact format (only non-empty meals)
+function encodeMenuCompact() {
+    const parts = [];
+    Object.keys(menuData).forEach(day => {
+        ['breakfast', 'lunch', 'dinner'].forEach(meal => {
+            const text = menuData[day][meal];
+            if (text && text.trim()) {
+                // Replace | and ~ with safe alternatives
+                const safeText = text.replace(/\|/g, '¦').replace(/~/g, '≈');
+                parts.push(`${dayShortCodes[day]}${mealShortCodes[meal]}~${safeText}`);
+            }
+        });
+    });
+    return encodeURIComponent(parts.join('|'));
+}
+
+// Decode compact format back to menu data
+function decodeMenuCompact(encoded) {
+    const decoded = decodeURIComponent(encoded);
+    const newMenuData = {
+        monday: { breakfast: '', lunch: '', dinner: '' },
+        tuesday: { breakfast: '', lunch: '', dinner: '' },
+        wednesday: { breakfast: '', lunch: '', dinner: '' },
+        thursday: { breakfast: '', lunch: '', dinner: '' },
+        friday: { breakfast: '', lunch: '', dinner: '' },
+        saturday: { breakfast: '', lunch: '', dinner: '' },
+        sunday: { breakfast: '', lunch: '', dinner: '' }
+    };
+    
+    if (!decoded) return newMenuData;
+    
+    const parts = decoded.split('|');
+    parts.forEach(part => {
+        const tildeIndex = part.indexOf('~');
+        if (tildeIndex > 0) {
+            const key = part.substring(0, tildeIndex);
+            const text = part.substring(tildeIndex + 1).replace(/¦/g, '|').replace(/≈/g, '~');
+            const dayCode = key.substring(0, 2);
+            const mealCode = key.substring(2, 3);
+            const day = dayFromShortCode[dayCode];
+            const meal = mealFromShortCode[mealCode];
+            if (day && meal) {
+                newMenuData[day][meal] = text;
+            }
+        }
+    });
+    
+    return newMenuData;
+}
+
 // Export menu as shareable link (read-only view)
 function exportMenuAsLink() {
-    const menuJson = JSON.stringify(menuData);
-    const encoded = btoa(encodeURIComponent(menuJson));
+    const encoded = encodeMenuCompact();
     const currentUrl = window.location.origin + window.location.pathname;
-    return `${currentUrl}?view=${encoded}`;
+    return `${currentUrl}?v=${encoded}`;
 }
 
 // Export menu as formatted text
@@ -197,8 +327,27 @@ function exportMenuAsText() {
     return text;
 }
 
+// Shorten URL using is.gd service
+async function shortenUrl(longUrl) {
+    try {
+        const apiUrl = `https://is.gd/create.php?format=simple&url=${encodeURIComponent(longUrl)}`;
+        const response = await fetch(apiUrl);
+        if (response.ok) {
+            const shortUrl = await response.text();
+            // Validate that we got a proper URL back
+            if (shortUrl.startsWith('https://is.gd/')) {
+                return shortUrl;
+            }
+        }
+        return null;
+    } catch (error) {
+        console.error('URL shortening failed:', error);
+        return null;
+    }
+}
+
 // Open share modal
-function openShareModal() {
+async function openShareModal() {
     if (!shareModal) {
         alert('Share modal not found. Please refresh the page.');
         return;
@@ -206,16 +355,67 @@ function openShareModal() {
     
     shareModal.style.display = 'block';
     
-    // Generate share link
-    const shareLink = exportMenuAsLink();
-    if (shareLinkInput) {
-        shareLinkInput.value = shareLink;
-    }
-    
-    // Generate share text
+    // Generate share text first (doesn't need async)
     const shareText = exportMenuAsText();
     if (shareTextInput) {
         shareTextInput.value = shareText;
+    }
+    
+    // Generate and shorten share link
+    const longUrl = exportMenuAsLink();
+    if (shareLinkInput) {
+        shareLinkInput.value = 'Generating short link...';
+        shareLinkInput.disabled = true;
+        
+        const shortUrl = await shortenUrl(longUrl);
+        
+        if (shortUrl) {
+            shareLinkInput.value = shortUrl;
+        } else {
+            // Fallback to long URL if shortening fails
+            shareLinkInput.value = longUrl;
+        }
+        shareLinkInput.disabled = false;
+    }
+    
+    // Generate cook's permanent link
+    const cookLinkInput = document.getElementById('cookLinkInput');
+    if (cookLinkInput) {
+        if (cloudBlobId) {
+            const cookUrl = `${window.location.origin}${window.location.pathname}?cook=${cloudBlobId}`;
+            cookLinkInput.value = cookUrl;
+        } else {
+            cookLinkInput.value = 'Click "Sync to Cloud" first to get a permanent cook link';
+        }
+    }
+}
+
+// Sync menu to cloud and update cook link
+async function syncToCloud() {
+    const syncBtn = document.getElementById('syncBtn');
+    if (syncBtn) {
+        syncBtn.textContent = '⏳ Syncing...';
+        syncBtn.disabled = true;
+    }
+    
+    const success = await saveToCloud();
+    
+    if (success) {
+        showSyncStatus('✓ Menu synced to cloud!', true);
+        
+        // Update cook link input if share modal is open
+        const cookLinkInput = document.getElementById('cookLinkInput');
+        if (cookLinkInput && cloudBlobId) {
+            const cookUrl = `${window.location.origin}${window.location.pathname}?cook=${cloudBlobId}`;
+            cookLinkInput.value = cookUrl;
+        }
+    } else {
+        showSyncStatus('✗ Sync failed. Try again.', false);
+    }
+    
+    if (syncBtn) {
+        syncBtn.textContent = '☁️ Sync to Cloud';
+        syncBtn.disabled = false;
     }
 }
 
@@ -323,16 +523,6 @@ function enableReadOnlyMode() {
         if (subtitle) {
             subtitle.innerHTML = '📋 Shared Menu <span class="readonly-badge">View Only</span>';
         }
-        
-        // Add "Create Your Own" button
-        const createOwnBtn = document.createElement('a');
-        createOwnBtn.href = window.location.pathname;
-        createOwnBtn.className = 'btn btn-primary create-own-btn';
-        createOwnBtn.textContent = '✨ Create Your Own Menu';
-        createOwnBtn.style.marginTop = '15px';
-        createOwnBtn.style.display = 'inline-block';
-        createOwnBtn.style.textDecoration = 'none';
-        header.appendChild(createOwnBtn);
     }
     
     // Add body class for additional styling
@@ -340,23 +530,53 @@ function enableReadOnlyMode() {
 }
 
 // Check for menu in URL parameters (for sharing)
-function checkUrlForMenu() {
+async function checkUrlForMenu() {
     const urlParams = new URLSearchParams(window.location.search);
     
-    // Check for read-only view parameter
+    // Check for cook mode - load latest from cloud
+    const cookMode = urlParams.get('cook');
+    if (cookMode) {
+        const cloudData = await loadFromCloud(cookMode);
+        if (cloudData) {
+            menuData = cloudData;
+            updateDisplay();
+            enableReadOnlyMode();
+            // Update header for cook
+            const subtitle = document.querySelector('.subtitle');
+            if (subtitle) {
+                subtitle.innerHTML = '👨‍🍳 Cook\'s View <span class="readonly-badge">Auto-Updated</span>';
+            }
+            return;
+        } else {
+            alert('Could not load menu. The link may be invalid.');
+        }
+    }
+    
+    // Check for compact read-only view parameter (?v=)
+    const compactViewParam = urlParams.get('v');
+    if (compactViewParam) {
+        try {
+            menuData = decodeMenuCompact(compactViewParam);
+            updateDisplay();
+            enableReadOnlyMode();
+            return;
+        } catch (error) {
+            console.error('Failed to load shared menu from URL:', error);
+        }
+    }
+    
+    // Legacy support: Check for old base64 view parameter (?view=)
     const viewParam = urlParams.get('view');
     if (viewParam) {
         try {
             const decoded = decodeURIComponent(atob(viewParam));
             const importedData = JSON.parse(decoded);
             
-            // Validate structure
             const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
             const requiredMeals = ['breakfast', 'lunch', 'dinner'];
             
             if (requiredDays.every(day => importedData[day] && 
                 requiredMeals.every(meal => importedData[day].hasOwnProperty(meal)))) {
-                // Load the shared menu (don't save to localStorage)
                 menuData = importedData;
                 updateDisplay();
                 enableReadOnlyMode();
@@ -375,7 +595,6 @@ function checkUrlForMenu() {
             const importedData = JSON.parse(decoded);
             if (confirm('A menu was found in the link. Would you like to import it?')) {
                 if (importMenu(`?menu=${menuParam}`)) {
-                    // Clean URL
                     window.history.replaceState({}, document.title, window.location.pathname);
                 }
             }
@@ -399,6 +618,30 @@ if (closeShareBtn) {
 }
 if (cancelImportBtn) {
     cancelImportBtn.addEventListener('click', closeImportModal);
+}
+
+// Sync button
+const syncBtn = document.getElementById('syncBtn');
+if (syncBtn) {
+    syncBtn.addEventListener('click', syncToCloud);
+}
+
+// Copy cook link button
+const copyCookLinkBtn = document.getElementById('copyCookLinkBtn');
+const cookLinkInput = document.getElementById('cookLinkInput');
+if (copyCookLinkBtn && cookLinkInput) {
+    copyCookLinkBtn.addEventListener('click', async () => {
+        if (cookLinkInput.value.includes('Sync to Cloud')) {
+            alert('Please click "Sync to Cloud" first to generate a cook link.');
+            return;
+        }
+        if (await copyToClipboard(cookLinkInput.value)) {
+            copyCookLinkBtn.textContent = '✓ Copied!';
+            setTimeout(() => {
+                copyCookLinkBtn.textContent = 'Copy Cook Link';
+            }, 2000);
+        }
+    });
 }
 
 if (copyLinkBtn && shareLinkInput) {

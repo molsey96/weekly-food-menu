@@ -222,6 +222,7 @@
         </div>
 
         <div class="controls">
+            <button class="btn btn-success" id="syncBtn">☁️ Sync to Cloud</button>
             <button class="btn btn-primary" id="exportBtn">📤 Share Menu</button>
             <button class="btn btn-secondary" id="importBtn">📥 Import Menu</button>
             <button class="btn btn-secondary" id="clearWeekBtn">Clear Week</button>
@@ -234,9 +235,17 @@
             <span class="close" data-modal="shareModal">&times;</span>
             <h2 id="shareModalTitle">Share Weekly Menu</h2>
             <div class="share-options">
+                <div class="share-option cook-link-option">
+                    <h3>👨‍🍳 Cook's Permanent Link</h3>
+                    <p class="share-description">Give this link to your cook ONCE. They can refresh it anytime to see the latest menu. <strong>Make sure to click "Sync to Cloud" first!</strong></p>
+                    <div class="share-input-group">
+                        <input type="text" id="cookLinkInput" readonly>
+                        <button class="btn btn-success" id="copyCookLinkBtn">Copy Cook Link</button>
+                    </div>
+                </div>
                 <div class="share-option">
-                    <h3>Copy Share Link</h3>
-                    <p class="share-description">Copy this link and send it to your cook. They can import it to see your menu.</p>
+                    <h3>One-Time Share Link</h3>
+                    <p class="share-description">This link contains the current menu snapshot. Use for one-time sharing.</p>
                     <div class="share-input-group">
                         <input type="text" id="shareLinkInput" readonly>
                         <button class="btn btn-primary" id="copyLinkBtn">Copy Link</button>
