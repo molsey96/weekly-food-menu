@@ -507,25 +507,57 @@ function closeImportModal() {
 
 // Copy to clipboard
 async function copyToClipboard(text) {
-    try {
-        await navigator.clipboard.writeText(text);
-        return true;
-    } catch (err) {
-        // Fallback for older browsers
-        const textarea = document.createElement('textarea');
-        textarea.value = text;
-        textarea.style.position = 'fixed';
-        textarea.style.opacity = '0';
-        document.body.appendChild(textarea);
-        textarea.select();
+    // Try modern clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
+            await navigator.clipboard.writeText(text);
             return true;
         } catch (err) {
-            document.body.removeChild(textarea);
-            return false;
+            console.log('Clipboard API failed, trying fallback...');
         }
+    }
+    
+    // Fallback for iOS and older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    
+    // iOS specific styling to make it work
+    textarea.style.position = 'fixed';
+    textarea.style.top = '0';
+    textarea.style.left = '0';
+    textarea.style.width = '2em';
+    textarea.style.height = '2em';
+    textarea.style.padding = '0';
+    textarea.style.border = 'none';
+    textarea.style.outline = 'none';
+    textarea.style.boxShadow = 'none';
+    textarea.style.background = 'transparent';
+    textarea.style.fontSize = '16px'; // Prevents iOS zoom
+    
+    document.body.appendChild(textarea);
+    textarea.focus();
+    
+    // iOS specific selection
+    if (navigator.userAgent.match(/ipad|iphone/i)) {
+        textarea.contentEditable = true;
+        textarea.readOnly = false;
+        const range = document.createRange();
+        range.selectNodeContents(textarea);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        textarea.setSelectionRange(0, 999999);
+    } else {
+        textarea.select();
+    }
+    
+    try {
+        const success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return success;
+    } catch (err) {
+        document.body.removeChild(textarea);
+        return false;
     }
 }
 
