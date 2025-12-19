@@ -80,9 +80,6 @@ async function sendToCookWhatsApp() {
         shareUrl = shortUrl;
     }
     
-    // Copy link to clipboard
-    await copyToClipboard(shareUrl);
-    
     // Update cook link input if visible
     const cookLinkInput = document.getElementById('cookLinkInput');
     if (cookLinkInput) {
@@ -90,9 +87,21 @@ async function sendToCookWhatsApp() {
         cookLinkInput.style.color = '';
     }
     
-    // Show success and open WhatsApp
-    showSyncStatus('✓ Link copied! Opening WhatsApp...', true);
+    // Copy link to clipboard FIRST (before opening new window)
+    const copied = await copyToClipboard(shareUrl);
     
+    if (copied) {
+        showSyncStatus('✓ Link copied to clipboard!', true);
+    } else {
+        // If clipboard fails, show the link in an alert so user can manually copy
+        showSyncStatus('⚠️ Could not copy automatically', false);
+        prompt('Copy this link:', shareUrl);
+    }
+    
+    // Small delay to ensure clipboard operation completes
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    // Open WhatsApp
     const message = encodeURIComponent(`🍽️ Weekly Menu Update!\n\nHere's this week's food menu:\n${shareUrl}`);
     window.open(`https://wa.me/?text=${message}`, '_blank');
     
