@@ -61,6 +61,18 @@ function generateCookLink() {
 async function sendToCookWhatsApp() {
     const longUrl = generateCookLink();
     
+    // Show loading state on button
+    const whatsappBtn = document.getElementById('whatsappBtn');
+    const whatsappShareBtn = document.getElementById('whatsappShareBtn');
+    if (whatsappBtn) {
+        whatsappBtn.textContent = '⏳ Generating link...';
+        whatsappBtn.disabled = true;
+    }
+    if (whatsappShareBtn) {
+        whatsappShareBtn.textContent = '⏳...';
+        whatsappShareBtn.disabled = true;
+    }
+    
     // Try to shorten the URL first
     let shareUrl = longUrl;
     const shortUrl = await shortenUrl(longUrl);
@@ -68,8 +80,31 @@ async function sendToCookWhatsApp() {
         shareUrl = shortUrl;
     }
     
+    // Copy link to clipboard
+    await copyToClipboard(shareUrl);
+    
+    // Update cook link input if visible
+    const cookLinkInput = document.getElementById('cookLinkInput');
+    if (cookLinkInput) {
+        cookLinkInput.value = shareUrl;
+        cookLinkInput.style.color = '';
+    }
+    
+    // Show success and open WhatsApp
+    showSyncStatus('✓ Link copied! Opening WhatsApp...', true);
+    
     const message = encodeURIComponent(`🍽️ Weekly Menu Update!\n\nHere's this week's food menu:\n${shareUrl}`);
     window.open(`https://wa.me/?text=${message}`, '_blank');
+    
+    // Reset button states
+    if (whatsappBtn) {
+        whatsappBtn.textContent = '📱 Send to Cook (WhatsApp)';
+        whatsappBtn.disabled = false;
+    }
+    if (whatsappShareBtn) {
+        whatsappShareBtn.textContent = '📱 WhatsApp';
+        whatsappShareBtn.disabled = false;
+    }
 }
 
 // Copy cook link to clipboard
