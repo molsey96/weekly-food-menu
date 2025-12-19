@@ -73,9 +73,26 @@ async function saveToCloud() {
             });
             if (!response.ok) throw new Error('Failed to create');
             
-            // Extract blob ID from Location header
-            const location = response.headers.get('Location');
-            cloudBlobId = location.split('/').pop();
+            // Extract blob ID from x-jsonblob-id header (CORS-safe)
+            cloudBlobId = response.headers.get('x-jsonblob-id');
+            
+            // Fallback: try Location header
+            if (!cloudBlobId) {
+                const location = response.headers.get('Location');
+                if (location) {
+                    cloudBlobId = location.split('/').pop();
+                }
+            }
+            
+            // Final fallback: parse from response URL
+            if (!cloudBlobId && response.url) {
+                cloudBlobId = response.url.split('/').pop();
+            }
+            
+            if (!cloudBlobId) {
+                throw new Error('Could not get blob ID');
+            }
+            
             localStorage.setItem('cloudBlobId', cloudBlobId);
             return true;
         }
