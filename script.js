@@ -409,15 +409,19 @@ function exportMenuAsText() {
     return text;
 }
 
-// Shorten URL using is.gd service
+// Shorten URL using is.gd service via CORS proxy
 async function shortenUrl(longUrl) {
     try {
-        const apiUrl = `https://is.gd/create.php?format=simple&url=${encodeURIComponent(longUrl)}`;
-        const response = await fetch(apiUrl);
+        // Use allorigins.win as CORS proxy for is.gd
+        const isGdUrl = `https://is.gd/create.php?format=simple&url=${encodeURIComponent(longUrl)}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(isGdUrl)}`;
+        
+        const response = await fetch(proxyUrl);
         if (response.ok) {
-            const shortUrl = await response.text();
+            const data = await response.json();
+            const shortUrl = data.contents?.trim();
             // Validate that we got a proper URL back
-            if (shortUrl.startsWith('https://is.gd/')) {
+            if (shortUrl && shortUrl.startsWith('https://is.gd/')) {
                 return shortUrl;
             }
         }
