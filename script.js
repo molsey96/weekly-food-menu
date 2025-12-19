@@ -57,7 +57,7 @@ function generateCookLink() {
     return `${currentUrl}?v=${encoded}`;
 }
 
-// Send menu to cook via WhatsApp
+// Send menu to cook via WhatsApp or native share
 async function sendToCookWhatsApp() {
     const longUrl = generateCookLink();
     
@@ -87,25 +87,46 @@ async function sendToCookWhatsApp() {
         cookLinkInput.style.color = '';
     }
     
-    // Copy link to clipboard FIRST (before opening new window)
+    // Try native Web Share API first (works great on mobile!)
+    if (navigator.share) {
+        try {
+            await navigator.share({
+                title: '🍽️ Weekly Food Menu',
+                text: 'Here\'s this week\'s food menu:',
+                url: shareUrl
+            });
+            showSyncStatus('✓ Shared successfully!', true);
+            resetShareButtons();
+            return;
+        } catch (err) {
+            // User cancelled or share failed, continue to fallback
+            if (err.name === 'AbortError') {
+                resetShareButtons();
+                return;
+            }
+        }
+    }
+    
+    // Fallback: Copy to clipboard and open WhatsApp
     const copied = await copyToClipboard(shareUrl);
     
     if (copied) {
         showSyncStatus('✓ Link copied to clipboard!', true);
     } else {
-        // If clipboard fails, show the link in an alert so user can manually copy
-        showSyncStatus('⚠️ Could not copy automatically', false);
-        prompt('Copy this link:', shareUrl);
+        showSyncStatus('Opening WhatsApp...', true);
     }
-    
-    // Small delay to ensure clipboard operation completes
-    await new Promise(resolve => setTimeout(resolve, 300));
     
     // Open WhatsApp
     const message = encodeURIComponent(`🍽️ Weekly Menu Update!\n\nHere's this week's food menu:\n${shareUrl}`);
-    window.open(`https://wa.me/?text=${message}`, '_blank');
+    window.location.href = `https://wa.me/?text=${message}`;
     
-    // Reset button states
+    resetShareButtons();
+}
+
+// Reset share button states
+function resetShareButtons() {
+    const whatsappBtn = document.getElementById('whatsappBtn');
+    const whatsappShareBtn = document.getElementById('whatsappShareBtn');
     if (whatsappBtn) {
         whatsappBtn.textContent = '📱 Send to Cook (WhatsApp)';
         whatsappBtn.disabled = false;
