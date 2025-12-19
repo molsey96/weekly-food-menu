@@ -384,8 +384,10 @@ async function openShareModal() {
         if (cloudBlobId) {
             const cookUrl = `${window.location.origin}${window.location.pathname}?cook=${cloudBlobId}`;
             cookLinkInput.value = cookUrl;
+            cookLinkInput.style.color = '';
         } else {
-            cookLinkInput.value = 'Click "Sync to Cloud" first to get a permanent cook link';
+            cookLinkInput.value = '⚠️ Click "Sync to Cloud" button first!';
+            cookLinkInput.style.color = '#f59e0b';
         }
     }
 }
