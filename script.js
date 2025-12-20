@@ -409,19 +409,22 @@ function exportMenuAsText() {
     return text;
 }
 
-// Shorten URL using is.gd service via CORS proxy
+// Shorten URL using TinyURL service via CORS proxy
 async function shortenUrl(longUrl) {
     try {
-        // Use allorigins.win as CORS proxy for is.gd
-        const isGdUrl = `https://is.gd/create.php?format=simple&url=${encodeURIComponent(longUrl)}`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(isGdUrl)}`;
+        // Use allorigins.win as CORS proxy for TinyURL
+        const tinyUrl = `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`;
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tinyUrl)}`;
         
-        const response = await fetch(proxyUrl);
+        const response = await fetch(proxyUrl, { 
+            signal: AbortSignal.timeout(8000) // 8 second timeout
+        });
+        
         if (response.ok) {
             const data = await response.json();
             const shortUrl = data.contents?.trim();
-            // Validate that we got a proper URL back
-            if (shortUrl && shortUrl.startsWith('https://is.gd/')) {
+            // Validate that we got a proper TinyURL back
+            if (shortUrl && shortUrl.startsWith('https://tinyurl.com/')) {
                 return shortUrl;
             }
         }
