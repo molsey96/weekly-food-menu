@@ -289,11 +289,18 @@ function startInlineEdit(day, meal) {
     
     mealItem.appendChild(editContainer);
     
+    // Stop clicks inside the edit container from bubbling up
+    editContainer.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    
     const textarea = editContainer.querySelector('.inline-textarea');
     
     // Focus and position cursor at end of text
-    textarea.focus();
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    }, 10);
     
     // Paste handler
     const pasteBtnEl = editContainer.querySelector('.inline-paste-btn');
