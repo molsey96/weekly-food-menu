@@ -220,20 +220,21 @@ header h1 {
 }
 
 .copy-btn {
-    padding: 4px 8px;
-    background: transparent;
+    padding: 4px 10px;
+    background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
-    font-size: 0.75rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
-    opacity: 0.6;
+    color: var(--text-secondary);
 }
 
 .copy-btn:hover {
-    opacity: 1;
-    background: var(--bg-primary);
+    background: var(--accent-primary);
     border-color: var(--accent-primary);
+    color: white;
 }
 
 .readonly-mode .copy-btn {
@@ -338,46 +339,24 @@ header h1 {
 .inline-edit-buttons {
     display: flex;
     gap: 8px;
-    justify-content: flex-end;
+    justify-content: flex-start;
+    margin-top: 8px;
 }
 
-.inline-save-btn, .inline-cancel-btn, .inline-paste-btn {
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 0.8125rem;
+.inline-paste-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.75rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
     border: none;
-}
-
-.inline-paste-btn {
     background: #e0e7ff;
     color: var(--accent-primary);
-    margin-right: auto;
 }
 
 .inline-paste-btn:hover {
     background: #c7d2fe;
-}
-
-.inline-save-btn {
-    background: var(--success);
-    color: white;
-}
-
-.inline-save-btn:hover {
-    background: #059669;
-}
-
-.inline-cancel-btn {
-    background: var(--bg-primary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-}
-
-.inline-cancel-btn:hover {
-    background: #e5e7eb;
 }
 
 /* Modal Styles */

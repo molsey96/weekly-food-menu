@@ -280,11 +280,7 @@ function startInlineEdit(day, meal) {
     
     editContainer.innerHTML = `
         <textarea class="inline-textarea" rows="3" placeholder="Enter meal items...">${currentText}</textarea>
-        <div class="inline-edit-buttons">
-            ${pasteBtn}
-            <button class="inline-save-btn">Save</button>
-            <button class="inline-cancel-btn">Cancel</button>
-        </div>
+        ${pasteBtn ? `<div class="inline-edit-buttons">${pasteBtn}</div>` : ''}
     `;
     
     mealItem.appendChild(editContainer);
@@ -312,28 +308,29 @@ function startInlineEdit(day, meal) {
         });
     }
     
-    // Save handler
-    editContainer.querySelector('.inline-save-btn').addEventListener('click', () => {
-        const newValue = textarea.value.trim();
-        menuData[day][meal] = newValue;
-        saveMenu();
-        endInlineEdit(mealItem, mealText, editBtn, editContainer);
-        updateDisplay();
+    // Save and close when clicking outside (blur)
+    textarea.addEventListener('blur', (e) => {
+        // Small delay to allow paste button click to work
+        setTimeout(() => {
+            if (!editContainer.contains(document.activeElement)) {
+                const newValue = textarea.value.trim();
+                menuData[day][meal] = newValue;
+                saveMenu();
+                endInlineEdit(mealItem, mealText, editBtn, editContainer);
+                updateDisplay();
+            }
+        }, 100);
     });
     
-    // Cancel handler
-    editContainer.querySelector('.inline-cancel-btn').addEventListener('click', () => {
-        endInlineEdit(mealItem, mealText, editBtn, editContainer);
-    });
-    
-    // Save on Enter (Shift+Enter for new line)
+    // Also save on Enter (Shift+Enter for new line)
     textarea.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            editContainer.querySelector('.inline-save-btn').click();
+            textarea.blur(); // This will trigger the save
         }
         if (e.key === 'Escape') {
-            editContainer.querySelector('.inline-cancel-btn').click();
+            // On escape, restore original and close
+            endInlineEdit(mealItem, mealText, editBtn, editContainer);
         }
     });
 }
@@ -356,35 +353,43 @@ function openModal(day = null, meal = null) {
 
 // Close modal
 function closeModal() {
-    modal.style.display = 'none';
-    mealForm.reset();
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    if (mealForm) {
+        mealForm.reset();
+    }
 }
 
-// Handle form submission
-mealForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    
-    const day = daySelect.value;
-    const meal = mealSelect.value;
-    const mealText = mealInput.value.trim();
-    
-    // Store the raw text (will be formatted on display, empty string is allowed)
-    menuData[day][meal] = mealText;
-    saveMenu();
-    updateDisplay();
-    closeModal();
-});
-
-// Clear week button click
-clearWeekBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to clear all meals for the week?')) {
-        Object.keys(menuData).forEach(day => {
-            menuData[day] = { breakfast: '', lunch: '', dinner: '' };
-        });
+// Handle form submission (legacy modal - not used with inline editing)
+if (mealForm) {
+    mealForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        
+        const day = daySelect.value;
+        const meal = mealSelect.value;
+        const mealText = mealInput.value.trim();
+        
+        // Store the raw text (will be formatted on display, empty string is allowed)
+        menuData[day][meal] = mealText;
         saveMenu();
         updateDisplay();
-    }
-});
+        closeModal();
+    });
+}
+
+// Clear week button click
+if (clearWeekBtn) {
+    clearWeekBtn.addEventListener('click', () => {
+        if (confirm('Are you sure you want to clear all meals for the week?')) {
+            Object.keys(menuData).forEach(day => {
+                menuData[day] = { menu: '' };
+            });
+            saveMenu();
+            updateDisplay();
+        }
+    });
+}
 
 // Edit button clicks
 document.querySelectorAll('.edit-btn').forEach(btn => {
@@ -412,18 +417,22 @@ document.querySelectorAll('.meal-item').forEach(item => {
 
 // Copy button clicks
 document.querySelectorAll('.copy-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
         e.stopPropagation();
         const day = btn.getAttribute('data-day');
         const meal = btn.getAttribute('data-meal');
         const text = menuData[day]?.[meal] || '';
         
         if (text && text.trim()) {
+            // Copy to internal clipboard for paste button
             copiedMenuText = text;
+            
+            // Also copy to system clipboard
+            const copied = await copyToClipboard(text);
             
             // Visual feedback
             const originalText = btn.textContent;
-            btn.textContent = '✓';
+            btn.textContent = '✓ Copied!';
             btn.style.background = '#10b981';
             btn.style.color = 'white';
             
@@ -433,7 +442,11 @@ document.querySelectorAll('.copy-btn').forEach(btn => {
                 btn.style.color = '';
             }, 1500);
             
-            showSyncStatus('✓ Menu copied! Click Edit on another day to paste.', true);
+            if (copied) {
+                showSyncStatus('✓ Copied to clipboard!', true);
+            } else {
+                showSyncStatus('✓ Copied! (Use paste button on other days)', true);
+            }
         } else {
             showSyncStatus('Nothing to copy - menu is empty', false);
         }
@@ -892,7 +905,9 @@ closeBtn.forEach(btn => {
     });
 });
 
-cancelBtn.addEventListener('click', closeModal);
+if (cancelBtn) {
+    cancelBtn.addEventListener('click', closeModal);
+}
 
 // Close modal when clicking outside
 window.addEventListener('click', (e) => {
