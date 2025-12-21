@@ -1,12 +1,12 @@
 // Menu data structure
 let menuData = {
-    monday: { breakfast: '', lunch: '', dinner: '' },
-    tuesday: { breakfast: '', lunch: '', dinner: '' },
-    wednesday: { breakfast: '', lunch: '', dinner: '' },
-    thursday: { breakfast: '', lunch: '', dinner: '' },
-    friday: { breakfast: '', lunch: '', dinner: '' },
-    saturday: { breakfast: '', lunch: '', dinner: '' },
-    sunday: { breakfast: '', lunch: '', dinner: '' }
+    monday: { lunch: '', dinner: '' },
+    tuesday: { lunch: '', dinner: '' },
+    wednesday: { lunch: '', dinner: '' },
+    thursday: { lunch: '', dinner: '' },
+    friday: { lunch: '', dinner: '' },
+    saturday: { lunch: '', dinner: '' },
+    sunday: { lunch: '', dinner: '' }
 };
 
 // Read-only mode flag
@@ -236,7 +236,7 @@ function parseMealText(text) {
 // Update the display with current menu data
 function updateDisplay() {
     Object.keys(menuData).forEach(day => {
-        ['breakfast', 'lunch', 'dinner'].forEach(meal => {
+        ['lunch', 'dinner'].forEach(meal => {
             const mealItem = document.querySelector(
                 `.day-card[data-day="${day}"] .meal-item[data-meal="${meal}"] .meal-text`
             );
@@ -265,7 +265,7 @@ function openModal(day = null, meal = null) {
         // Adding new meal
         document.getElementById('modalTitle').textContent = 'Add Meal';
         daySelect.value = 'monday';
-        mealSelect.value = 'breakfast';
+        mealSelect.value = 'lunch';
         mealInput.value = '';
     }
 }
@@ -320,14 +320,14 @@ const dayFromShortCode = {
     mo: 'monday', tu: 'tuesday', we: 'wednesday', th: 'thursday',
     fr: 'friday', sa: 'saturday', su: 'sunday'
 };
-const mealShortCodes = { breakfast: 'b', lunch: 'l', dinner: 'd' };
-const mealFromShortCode = { b: 'breakfast', l: 'lunch', d: 'dinner' };
+const mealShortCodes = { lunch: 'l', dinner: 'd' };
+const mealFromShortCode = { l: 'lunch', d: 'dinner' };
 
 // Encode menu to compact format (only non-empty meals)
 function encodeMenuCompact() {
     const parts = [];
     Object.keys(menuData).forEach(day => {
-        ['breakfast', 'lunch', 'dinner'].forEach(meal => {
+        ['lunch', 'dinner'].forEach(meal => {
             const text = menuData[day][meal];
             if (text && text.trim()) {
                 // Replace | and ~ with safe alternatives
@@ -343,13 +343,13 @@ function encodeMenuCompact() {
 function decodeMenuCompact(encoded) {
     const decoded = decodeURIComponent(encoded);
     const newMenuData = {
-        monday: { breakfast: '', lunch: '', dinner: '' },
-        tuesday: { breakfast: '', lunch: '', dinner: '' },
-        wednesday: { breakfast: '', lunch: '', dinner: '' },
-        thursday: { breakfast: '', lunch: '', dinner: '' },
-        friday: { breakfast: '', lunch: '', dinner: '' },
-        saturday: { breakfast: '', lunch: '', dinner: '' },
-        sunday: { breakfast: '', lunch: '', dinner: '' }
+        monday: { lunch: '', dinner: '' },
+        tuesday: { lunch: '', dinner: '' },
+        wednesday: { lunch: '', dinner: '' },
+        thursday: { lunch: '', dinner: '' },
+        friday: { lunch: '', dinner: '' },
+        saturday: { lunch: '', dinner: '' },
+        sunday: { lunch: '', dinner: '' }
     };
     
     if (!decoded) return newMenuData;
@@ -384,7 +384,7 @@ function exportMenuAsLink() {
 function exportMenuAsText() {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const mealNames = { breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner' };
+    const mealNames = { lunch: 'Lunch', dinner: 'Dinner' };
     
     let text = '🍽️ WEEKLY FOOD MENU\n';
     text += '='.repeat(50) + '\n\n';
@@ -393,7 +393,7 @@ function exportMenuAsText() {
         text += `${dayNames[index].toUpperCase()}\n`;
         text += '-'.repeat(30) + '\n';
         
-        ['breakfast', 'lunch', 'dinner'].forEach(meal => {
+        ['lunch', 'dinner'].forEach(meal => {
             const mealText = menuData[day][meal];
             if (mealText && mealText.trim()) {
                 text += `\n${mealNames[meal]}:\n`;
@@ -502,7 +502,7 @@ function importMenu(data) {
         
         // Validate structure
         const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        const requiredMeals = ['breakfast', 'lunch', 'dinner'];
+        const requiredMeals = ['lunch', 'dinner'];
         
         if (!requiredDays.every(day => importedData[day] && 
             requiredMeals.every(meal => importedData[day].hasOwnProperty(meal)))) {
@@ -647,7 +647,7 @@ function checkUrlForMenu() {
             const importedData = JSON.parse(decoded);
             
             const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-            const requiredMeals = ['breakfast', 'lunch', 'dinner'];
+            const requiredMeals = ['lunch', 'dinner'];
             
             if (requiredDays.every(day => importedData[day] && 
                 requiredMeals.every(meal => importedData[day].hasOwnProperty(meal)))) {
