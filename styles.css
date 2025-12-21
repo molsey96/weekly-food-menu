@@ -203,13 +203,41 @@ header h1 {
     gap: 16px;
 }
 
+.meal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
 .meal-section h3 {
     font-size: 0.75rem;
     color: var(--text-muted);
-    margin-bottom: 8px;
+    margin: 0;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: 600;
+}
+
+.copy-btn {
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0.6;
+}
+
+.copy-btn:hover {
+    opacity: 1;
+    background: var(--bg-primary);
+    border-color: var(--accent-primary);
+}
+
+.readonly-mode .copy-btn {
+    display: none;
 }
 
 .meal-item {
@@ -222,11 +250,16 @@ header h1 {
     border-radius: 12px;
     min-height: 56px;
     transition: all 0.2s ease;
+    cursor: pointer;
 }
 
 .meal-item:hover {
     border-color: var(--accent-primary);
     background: #f0f0ff;
+}
+
+.meal-item:not(.editing):hover .meal-text {
+    color: var(--accent-primary);
 }
 
 .meal-text {
@@ -308,7 +341,7 @@ header h1 {
     justify-content: flex-end;
 }
 
-.inline-save-btn, .inline-cancel-btn {
+.inline-save-btn, .inline-cancel-btn, .inline-paste-btn {
     padding: 8px 16px;
     border-radius: 8px;
     font-size: 0.8125rem;
@@ -316,6 +349,16 @@ header h1 {
     cursor: pointer;
     transition: all 0.2s ease;
     border: none;
+}
+
+.inline-paste-btn {
+    background: #e0e7ff;
+    color: var(--accent-primary);
+    margin-right: auto;
+}
+
+.inline-paste-btn:hover {
+    background: #c7d2fe;
 }
 
 .inline-save-btn {

@@ -1,13 +1,16 @@
 // Menu data structure
 let menuData = {
-    monday: { lunch: '', dinner: '' },
-    tuesday: { lunch: '', dinner: '' },
-    wednesday: { lunch: '', dinner: '' },
-    thursday: { lunch: '', dinner: '' },
-    friday: { lunch: '', dinner: '' },
-    saturday: { lunch: '', dinner: '' },
-    sunday: { lunch: '', dinner: '' }
+    monday: { menu: '' },
+    tuesday: { menu: '' },
+    wednesday: { menu: '' },
+    thursday: { menu: '' },
+    friday: { menu: '' },
+    saturday: { menu: '' },
+    sunday: { menu: '' }
 };
+
+// Clipboard for copy/paste between days
+let copiedMenuText = '';
 
 // Read-only mode flag
 let isReadOnlyMode = false;
@@ -236,7 +239,7 @@ function parseMealText(text) {
 // Update the display with current menu data
 function updateDisplay() {
     Object.keys(menuData).forEach(day => {
-        ['lunch', 'dinner'].forEach(meal => {
+        ['menu'].forEach(meal => {
             const mealItem = document.querySelector(
                 `.day-card[data-day="${day}"] .meal-item[data-meal="${meal}"] .meal-text`
             );
@@ -271,9 +274,14 @@ function startInlineEdit(day, meal) {
     // Create inline edit container
     const editContainer = document.createElement('div');
     editContainer.className = 'inline-edit-container';
+    
+    const hasCopiedText = copiedMenuText && copiedMenuText.trim() !== '';
+    const pasteBtn = hasCopiedText ? `<button class="inline-paste-btn" title="Paste copied menu">📋 Paste</button>` : '';
+    
     editContainer.innerHTML = `
         <textarea class="inline-textarea" rows="3" placeholder="Enter meal items...">${currentText}</textarea>
         <div class="inline-edit-buttons">
+            ${pasteBtn}
             <button class="inline-save-btn">Save</button>
             <button class="inline-cancel-btn">Cancel</button>
         </div>
@@ -282,7 +290,20 @@ function startInlineEdit(day, meal) {
     mealItem.appendChild(editContainer);
     
     const textarea = editContainer.querySelector('.inline-textarea');
+    
+    // Focus and position cursor at end of text
     textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    
+    // Paste handler
+    const pasteBtnEl = editContainer.querySelector('.inline-paste-btn');
+    if (pasteBtnEl) {
+        pasteBtnEl.addEventListener('click', () => {
+            textarea.value = copiedMenuText;
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+        });
+    }
     
     // Save handler
     editContainer.querySelector('.inline-save-btn').addEventListener('click', () => {
@@ -360,10 +381,55 @@ clearWeekBtn.addEventListener('click', () => {
 
 // Edit button clicks
 document.querySelectorAll('.edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const day = btn.getAttribute('data-day');
         const meal = btn.getAttribute('data-meal');
         openModal(day, meal);
+    });
+});
+
+// Meal text clicks (start inline editing)
+document.querySelectorAll('.meal-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+        // Don't trigger if clicking on edit button or already editing
+        if (e.target.classList.contains('edit-btn') || item.classList.contains('editing')) return;
+        
+        const day = item.getAttribute('data-day');
+        const meal = item.getAttribute('data-meal');
+        if (day && meal) {
+            startInlineEdit(day, meal);
+        }
+    });
+});
+
+// Copy button clicks
+document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const day = btn.getAttribute('data-day');
+        const meal = btn.getAttribute('data-meal');
+        const text = menuData[day]?.[meal] || '';
+        
+        if (text && text.trim()) {
+            copiedMenuText = text;
+            
+            // Visual feedback
+            const originalText = btn.textContent;
+            btn.textContent = '✓';
+            btn.style.background = '#10b981';
+            btn.style.color = 'white';
+            
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.background = '';
+                btn.style.color = '';
+            }, 1500);
+            
+            showSyncStatus('✓ Menu copied! Click Edit on another day to paste.', true);
+        } else {
+            showSyncStatus('Nothing to copy - menu is empty', false);
+        }
     });
 });
 
@@ -376,14 +442,14 @@ const dayFromShortCode = {
     mo: 'monday', tu: 'tuesday', we: 'wednesday', th: 'thursday',
     fr: 'friday', sa: 'saturday', su: 'sunday'
 };
-const mealShortCodes = { lunch: 'l', dinner: 'd' };
-const mealFromShortCode = { l: 'lunch', d: 'dinner' };
+const mealShortCodes = { menu: 'm' };
+const mealFromShortCode = { m: 'menu' };
 
 // Encode menu to compact format (only non-empty meals)
 function encodeMenuCompact() {
     const parts = [];
     Object.keys(menuData).forEach(day => {
-        ['lunch', 'dinner'].forEach(meal => {
+        ['menu'].forEach(meal => {
             const text = menuData[day][meal];
             if (text && text.trim()) {
                 // Replace | and ~ with safe alternatives
@@ -399,13 +465,13 @@ function encodeMenuCompact() {
 function decodeMenuCompact(encoded) {
     const decoded = decodeURIComponent(encoded);
     const newMenuData = {
-        monday: { lunch: '', dinner: '' },
-        tuesday: { lunch: '', dinner: '' },
-        wednesday: { lunch: '', dinner: '' },
-        thursday: { lunch: '', dinner: '' },
-        friday: { lunch: '', dinner: '' },
-        saturday: { lunch: '', dinner: '' },
-        sunday: { lunch: '', dinner: '' }
+        monday: { menu: '' },
+        tuesday: { menu: '' },
+        wednesday: { menu: '' },
+        thursday: { menu: '' },
+        friday: { menu: '' },
+        saturday: { menu: '' },
+        sunday: { menu: '' }
     };
     
     if (!decoded) return newMenuData;
@@ -440,7 +506,7 @@ function exportMenuAsLink() {
 function exportMenuAsText() {
     const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    const mealNames = { lunch: 'Lunch', dinner: 'Dinner' };
+    const mealNames = { menu: 'Menu' };
     
     let text = '🍽️ WEEKLY FOOD MENU\n';
     text += '='.repeat(50) + '\n\n';
@@ -449,7 +515,7 @@ function exportMenuAsText() {
         text += `${dayNames[index].toUpperCase()}\n`;
         text += '-'.repeat(30) + '\n';
         
-        ['lunch', 'dinner'].forEach(meal => {
+        ['menu'].forEach(meal => {
             const mealText = menuData[day][meal];
             if (mealText && mealText.trim()) {
                 text += `\n${mealNames[meal]}:\n`;
@@ -558,7 +624,7 @@ function importMenu(data) {
         
         // Validate structure
         const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-        const requiredMeals = ['lunch', 'dinner'];
+        const requiredMeals = ['menu'];
         
         if (!requiredDays.every(day => importedData[day] && 
             requiredMeals.every(meal => importedData[day].hasOwnProperty(meal)))) {
@@ -703,7 +769,7 @@ function checkUrlForMenu() {
             const importedData = JSON.parse(decoded);
             
             const requiredDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-            const requiredMeals = ['lunch', 'dinner'];
+            const requiredMeals = ['menu'];
             
             if (requiredDays.every(day => importedData[day] && 
                 requiredMeals.every(meal => importedData[day].hasOwnProperty(meal)))) {
