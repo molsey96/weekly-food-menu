@@ -263,6 +263,77 @@ header h1 {
     box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
 }
 
+/* Inline Editing Styles */
+.meal-item.editing {
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.inline-edit-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.inline-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--accent-primary);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+}
+
+.inline-textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.inline-textarea::placeholder {
+    color: var(--text-muted);
+}
+
+.inline-edit-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.inline-save-btn, .inline-cancel-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+}
+
+.inline-save-btn {
+    background: var(--success);
+    color: white;
+}
+
+.inline-save-btn:hover {
+    background: #059669;
+}
+
+.inline-cancel-btn {
+    background: rgba(107, 114, 128, 0.2);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.inline-cancel-btn:hover {
+    background: rgba(107, 114, 128, 0.3);
+}
+
 /* Modal Styles */
 .modal {
     display: none;

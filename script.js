@@ -251,22 +251,78 @@ function updateDisplay() {
 }
 
 // Open modal for adding/editing meal
-function openModal(day = null, meal = null) {
-    modal.style.display = 'block';
+// Start inline editing for a meal
+function startInlineEdit(day, meal) {
+    const mealItem = document.querySelector(
+        `.day-card[data-day="${day}"] .meal-item[data-meal="${meal}"]`
+    );
+    if (!mealItem || mealItem.classList.contains('editing')) return;
     
+    mealItem.classList.add('editing');
+    
+    const mealText = mealItem.querySelector('.meal-text');
+    const editBtn = mealItem.querySelector('.edit-btn');
+    const currentText = menuData[day][meal] || '';
+    
+    // Hide the text and edit button
+    mealText.style.display = 'none';
+    editBtn.style.display = 'none';
+    
+    // Create inline edit container
+    const editContainer = document.createElement('div');
+    editContainer.className = 'inline-edit-container';
+    editContainer.innerHTML = `
+        <textarea class="inline-textarea" rows="3" placeholder="Enter meal items...">${currentText}</textarea>
+        <div class="inline-edit-buttons">
+            <button class="inline-save-btn">Save</button>
+            <button class="inline-cancel-btn">Cancel</button>
+        </div>
+    `;
+    
+    mealItem.appendChild(editContainer);
+    
+    const textarea = editContainer.querySelector('.inline-textarea');
+    textarea.focus();
+    
+    // Save handler
+    editContainer.querySelector('.inline-save-btn').addEventListener('click', () => {
+        const newValue = textarea.value.trim();
+        menuData[day][meal] = newValue;
+        saveMenu();
+        endInlineEdit(mealItem, mealText, editBtn, editContainer);
+        updateDisplay();
+    });
+    
+    // Cancel handler
+    editContainer.querySelector('.inline-cancel-btn').addEventListener('click', () => {
+        endInlineEdit(mealItem, mealText, editBtn, editContainer);
+    });
+    
+    // Save on Enter (Shift+Enter for new line)
+    textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            editContainer.querySelector('.inline-save-btn').click();
+        }
+        if (e.key === 'Escape') {
+            editContainer.querySelector('.inline-cancel-btn').click();
+        }
+    });
+}
+
+// End inline editing
+function endInlineEdit(mealItem, mealText, editBtn, editContainer) {
+    mealItem.classList.remove('editing');
+    mealText.style.display = '';
+    editBtn.style.display = '';
+    editContainer.remove();
+}
+
+// Legacy modal function (kept for compatibility)
+function openModal(day = null, meal = null) {
+    // Now use inline editing instead
     if (day && meal) {
-        // Editing existing meal
-        document.getElementById('modalTitle').textContent = 'Edit Meal';
-        daySelect.value = day;
-        mealSelect.value = meal;
-        // The stored text is already in input format (raw, without bullet points)
-        mealInput.value = menuData[day][meal] || '';
-    } else {
-        // Adding new meal
-        document.getElementById('modalTitle').textContent = 'Add Meal';
-        daySelect.value = 'monday';
-        mealSelect.value = 'lunch';
-        mealInput.value = '';
+        startInlineEdit(day, meal);
     }
 }
 
