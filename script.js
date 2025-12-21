@@ -278,8 +278,14 @@ function startInlineEdit(day, meal) {
     const hasCopiedText = copiedMenuText && copiedMenuText.trim() !== '';
     const pasteBtn = hasCopiedText ? `<button class="inline-paste-btn" title="Paste copied menu">📋 Paste</button>` : '';
     
+    // Format existing text with bullets for editing
+    const formattedText = formatForEditing(currentText);
+    
     editContainer.innerHTML = `
-        <textarea class="inline-textarea" rows="3" placeholder="Enter meal items...">${currentText}</textarea>
+        <div class="bullet-list-container">
+            <textarea class="inline-textarea bullet-textarea" rows="4" placeholder="• Add item...">${formattedText}</textarea>
+            <button class="add-item-btn" type="button">➕ Add New Item</button>
+        </div>
         ${pasteBtn ? `<div class="inline-edit-buttons">${pasteBtn}</div>` : ''}
     `;
     
@@ -291,6 +297,7 @@ function startInlineEdit(day, meal) {
     });
     
     const textarea = editContainer.querySelector('.inline-textarea');
+    const addItemBtn = editContainer.querySelector('.add-item-btn');
     
     // Focus and position cursor at end of text
     setTimeout(() => {
@@ -298,11 +305,62 @@ function startInlineEdit(day, meal) {
         textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }, 10);
     
+    // Add item button - adds a new bullet point (only if last line has content)
+    addItemBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const currentValue = textarea.value.trim();
+        
+        // Check if the last bullet has content
+        const lines = currentValue.split('\n').filter(l => l.trim());
+        const lastLine = lines[lines.length - 1] || '';
+        const lastLineContent = lastLine.replace(/^[•\-\*]\s*/, '').trim();
+        
+        if (currentValue === '' || lastLineContent !== '') {
+            // Only add new bullet if current is empty or last line has content
+            if (currentValue && !currentValue.endsWith('\n')) {
+                textarea.value = currentValue + '\n• ';
+            } else if (currentValue.endsWith('\n')) {
+                textarea.value = currentValue + '• ';
+            } else {
+                textarea.value = '• ';
+            }
+        }
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    });
+    
+    // Auto-add bullet on Enter (only if current line has content)
+    textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            const cursorPos = textarea.selectionStart;
+            const textBefore = textarea.value.substring(0, cursorPos);
+            
+            // Get current line content
+            const lines = textBefore.split('\n');
+            const currentLine = lines[lines.length - 1] || '';
+            const currentLineContent = currentLine.replace(/^[•\-\*]\s*/, '').trim();
+            
+            // Only add new bullet if current line has content
+            if (currentLineContent !== '') {
+                const textAfter = textarea.value.substring(cursorPos);
+                textarea.value = textBefore + '\n• ' + textAfter;
+                const newPos = cursorPos + 3; // Move cursor after "• "
+                textarea.setSelectionRange(newPos, newPos);
+            }
+        }
+        if (e.key === 'Escape') {
+            // On escape, restore original and close
+            endInlineEdit(mealItem, mealText, editBtn, editContainer);
+        }
+    });
+    
     // Paste handler
     const pasteBtnEl = editContainer.querySelector('.inline-paste-btn');
     if (pasteBtnEl) {
         pasteBtnEl.addEventListener('click', () => {
-            textarea.value = copiedMenuText;
+            textarea.value = formatForEditing(copiedMenuText);
             textarea.focus();
             textarea.setSelectionRange(textarea.value.length, textarea.value.length);
         });
@@ -310,29 +368,49 @@ function startInlineEdit(day, meal) {
     
     // Save and close when clicking outside (blur)
     textarea.addEventListener('blur', (e) => {
-        // Small delay to allow paste button click to work
+        // Small delay to allow button clicks to work
         setTimeout(() => {
             if (!editContainer.contains(document.activeElement)) {
-                const newValue = textarea.value.trim();
-                menuData[day][meal] = newValue;
+                // Clean up the text - remove bullet formatting for storage
+                const cleanValue = cleanBulletText(textarea.value);
+                menuData[day][meal] = cleanValue;
                 saveMenu();
                 endInlineEdit(mealItem, mealText, editBtn, editContainer);
                 updateDisplay();
             }
-        }, 100);
+        }, 150);
     });
+}
+
+// Format text with bullets for editing
+function formatForEditing(text) {
+    if (!text || text.trim() === '') return '• ';
     
-    // Also save on Enter (Shift+Enter for new line)
-    textarea.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            textarea.blur(); // This will trigger the save
+    const lines = text.split('\n').filter(line => line.trim());
+    return lines.map(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('•') || trimmed.startsWith('-') || trimmed.startsWith('*')) {
+            return '• ' + trimmed.substring(1).trim();
         }
-        if (e.key === 'Escape') {
-            // On escape, restore original and close
-            endInlineEdit(mealItem, mealText, editBtn, editContainer);
+        return '• ' + trimmed;
+    }).join('\n');
+}
+
+// Clean bullet formatting for storage
+function cleanBulletText(text) {
+    if (!text || text.trim() === '') return '';
+    
+    const lines = text.split('\n').filter(line => line.trim());
+    return lines.map(line => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('•')) {
+            return trimmed.substring(1).trim();
         }
-    });
+        if (trimmed.startsWith('-') || trimmed.startsWith('*')) {
+            return trimmed.substring(1).trim();
+        }
+        return trimmed;
+    }).filter(line => line).join('\n');
 }
 
 // End inline editing
