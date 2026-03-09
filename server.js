@@ -46,10 +46,33 @@ db.exec(`
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id)
     );
+
+    CREATE TABLE IF NOT EXISTS shared_menus (
+        id TEXT PRIMARY KEY,
+        created_by INTEGER UNIQUE NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (created_by) REFERENCES users(id)
+    );
 `);
 
+// Migrate old shared_menus table if it has menu_data column
+try {
+    const cols = db.prepare("PRAGMA table_info(shared_menus)").all();
+    if (cols.some(c => c.name === 'menu_data')) {
+        db.exec(`
+            DROP TABLE shared_menus;
+            CREATE TABLE shared_menus (
+                id TEXT PRIMARY KEY,
+                created_by INTEGER UNIQUE NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (created_by) REFERENCES users(id)
+            );
+        `);
+    }
+} catch (e) { /* table is already in new format */ }
+
 setInterval(() => {
-    db.prepare('DELETE FROM sessions WHERE expired < datetime("now")').run();
+    db.prepare("DELETE FROM sessions WHERE expired < datetime('now')").run();
 }, 60 * 60 * 1000);
 
 // --------------- Session Store (SQLite-backed) ---------------
@@ -63,7 +86,7 @@ class SQLiteStore extends session.Store {
     get(sid, cb) {
         try {
             const row = this.db.prepare(
-                'SELECT sess FROM sessions WHERE sid = ? AND expired > datetime("now")'
+                "SELECT sess FROM sessions WHERE sid = ? AND expired > datetime('now')"
             ).get(sid);
             cb(null, row ? JSON.parse(row.sess) : null);
         } catch (err) { cb(err); }
@@ -94,6 +117,7 @@ class SQLiteStore extends session.Store {
 
 // --------------- Middleware ---------------
 
+app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -262,9 +286,44 @@ app.get('/api/menu', requireAuth, (req, res) => {
 app.put('/api/menu', requireAuth, (req, res) => {
     const menuData = req.body;
     db.prepare(
-        'INSERT OR REPLACE INTO menus (user_id, menu_data, updated_at) VALUES (?, ?, datetime("now"))'
+        "INSERT OR REPLACE INTO menus (user_id, menu_data, updated_at) VALUES (?, ?, datetime('now'))"
     ).run(req.session.userId, JSON.stringify(menuData));
     res.json({ success: true });
+});
+
+// --------------- Share Routes ---------------
+
+function generateShortId() {
+    return crypto.randomBytes(4).toString('hex');
+}
+
+app.post('/api/share', requireAuth, (req, res) => {
+    const userId = req.session.userId;
+
+    const existing = db.prepare('SELECT id FROM shared_menus WHERE created_by = ?').get(userId);
+    if (existing) {
+        return res.json({ id: existing.id });
+    }
+
+    const id = generateShortId();
+    db.prepare(
+        'INSERT INTO shared_menus (id, created_by) VALUES (?, ?)'
+    ).run(id, userId);
+
+    res.json({ id });
+});
+
+app.get('/api/share/:id', (req, res) => {
+    const share = db.prepare('SELECT created_by FROM shared_menus WHERE id = ?').get(req.params.id);
+    if (!share) {
+        return res.status(404).json({ error: 'Shared menu not found.' });
+    }
+    const user = db.prepare('SELECT display_name FROM users WHERE id = ?').get(share.created_by);
+    const menu = db.prepare('SELECT menu_data FROM menus WHERE user_id = ?').get(share.created_by);
+    res.json({
+        menu: menu ? JSON.parse(menu.menu_data) : null,
+        owner: user ? user.display_name : null
+    });
 });
 
 // --------------- Start ---------------

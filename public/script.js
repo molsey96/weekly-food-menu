@@ -49,31 +49,34 @@ function loadMenuFromLocal() {
     updateDisplay();
 }
 
-// Load menu from server, falling back to localStorage
-async function loadMenu() {
-    loadMenuFromLocal();
+const emptyMenu = () => ({
+    monday: { menu: '' },
+    tuesday: { menu: '' },
+    wednesday: { menu: '' },
+    thursday: { menu: '' },
+    friday: { menu: '' },
+    saturday: { menu: '' },
+    sunday: { menu: '' }
+});
 
+// Load menu from server
+async function loadMenu() {
     if (!currentUser) return;
 
     try {
         const res = await fetch('/api/menu');
         if (res.ok) {
             const data = await res.json();
-            if (data) {
-                menuData = data;
-                localStorage.setItem('weeklyMenu', JSON.stringify(menuData));
-                updateDisplay();
-            }
+            menuData = data || emptyMenu();
+            updateDisplay();
         }
     } catch (err) {
-        console.error('Server load failed, using local data:', err);
+        console.error('Server load failed:', err);
     }
 }
 
-// Save menu to localStorage and server
+// Save menu to server
 function saveMenu() {
-    localStorage.setItem('weeklyMenu', JSON.stringify(menuData));
-
     if (currentUser) {
         fetch('/api/menu', {
             method: 'PUT',
@@ -85,18 +88,17 @@ function saveMenu() {
     }
 }
 
-// Generate shareable link for cook
-function generateCookLink() {
-    const encoded = encodeMenuCompact();
-    const currentUrl = window.location.origin + window.location.pathname;
-    return `${currentUrl}?v=${encoded}`;
+// Get (or create) the user's stable share link
+async function generateShareLink() {
+    const res = await fetch('/api/share', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    const base = window.location.origin + window.location.pathname;
+    return `${base}?v=${data.id}`;
 }
 
 // Send menu to cook via WhatsApp or native share
 async function sendToCookWhatsApp() {
-    const longUrl = generateCookLink();
-    
-    // Show loading state on button
     const whatsappBtn = document.getElementById('whatsappBtn');
     const whatsappShareBtn = document.getElementById('whatsappShareBtn');
     if (whatsappBtn) {
@@ -107,22 +109,22 @@ async function sendToCookWhatsApp() {
         whatsappShareBtn.textContent = '⏳...';
         whatsappShareBtn.disabled = true;
     }
-    
-    // Try to shorten the URL first
-    let shareUrl = longUrl;
-    const shortUrl = await shortenUrl(longUrl);
-    if (shortUrl) {
-        shareUrl = shortUrl;
+
+    let shareUrl;
+    try {
+        shareUrl = await generateShareLink();
+    } catch (err) {
+        showSyncStatus('Failed to generate link', false);
+        resetShareButtons();
+        return;
     }
-    
-    // Update cook link input if visible
+
     const cookLinkInput = document.getElementById('cookLinkInput');
     if (cookLinkInput) {
         cookLinkInput.value = shareUrl;
         cookLinkInput.style.color = '';
     }
-    
-    // Try native Web Share API first (works great on mobile!)
+
     if (navigator.share) {
         try {
             await navigator.share({
@@ -134,27 +136,23 @@ async function sendToCookWhatsApp() {
             resetShareButtons();
             return;
         } catch (err) {
-            // User cancelled or share failed, continue to fallback
             if (err.name === 'AbortError') {
                 resetShareButtons();
                 return;
             }
         }
     }
-    
-    // Fallback: Copy to clipboard and open WhatsApp
+
     const copied = await copyToClipboard(shareUrl);
-    
     if (copied) {
         showSyncStatus('✓ Link copied to clipboard!', true);
     } else {
         showSyncStatus('Opening WhatsApp...', true);
     }
-    
-    // Open WhatsApp
+
     const message = encodeURIComponent(`🍽️ Weekly Menu Update!\n\nHere's this week's food menu:\n${shareUrl}`);
     window.location.href = `https://wa.me/?text=${message}`;
-    
+
     resetShareButtons();
 }
 
@@ -174,29 +172,28 @@ function resetShareButtons() {
 
 // Copy cook link to clipboard
 async function copyCookLink() {
-    const longUrl = generateCookLink();
-    
-    // Show loading state
     const copyBtn = document.getElementById('copyCookLinkBtn');
     if (copyBtn) {
         copyBtn.textContent = '⏳ Generating...';
         copyBtn.disabled = true;
     }
-    
-    // Try to shorten the URL
-    let shareUrl = longUrl;
-    const shortUrl = await shortenUrl(longUrl);
-    if (shortUrl) {
-        shareUrl = shortUrl;
+
+    let shareUrl;
+    try {
+        shareUrl = await generateShareLink();
+    } catch (err) {
+        if (copyBtn) {
+            copyBtn.textContent = 'Copy Cook Link';
+            copyBtn.disabled = false;
+        }
+        return false;
     }
-    
-    // Update the input field
+
     const cookLinkInput = document.getElementById('cookLinkInput');
     if (cookLinkInput) {
         cookLinkInput.value = shareUrl;
     }
-    
-    // Copy to clipboard
+
     if (await copyToClipboard(shareUrl)) {
         if (copyBtn) {
             copyBtn.textContent = '✓ Copied!';
@@ -207,7 +204,7 @@ async function copyCookLink() {
         }
         return true;
     }
-    
+
     if (copyBtn) {
         copyBtn.textContent = 'Copy Cook Link';
         copyBtn.disabled = false;
@@ -288,6 +285,7 @@ function updateDisplay() {
 // Open modal for adding/editing meal
 // Start inline editing for a meal
 function startInlineEdit(day, meal) {
+    if (isReadOnlyMode) return;
     const mealItem = document.querySelector(
         `.day-card[data-day="${day}"] .meal-item[data-meal="${meal}"]`
     );
@@ -626,10 +624,8 @@ function decodeMenuCompact(encoded) {
 }
 
 // Export menu as shareable link (read-only view)
-function exportMenuAsLink() {
-    const encoded = encodeMenuCompact();
-    const currentUrl = window.location.origin + window.location.pathname;
-    return `${currentUrl}?v=${encoded}`;
+async function exportMenuAsLink() {
+    return await generateShareLink();
 }
 
 // Export menu as formatted text
@@ -661,32 +657,6 @@ function exportMenuAsText() {
     return text;
 }
 
-// Shorten URL using TinyURL service via CORS proxy
-async function shortenUrl(longUrl) {
-    try {
-        // Use allorigins.win as CORS proxy for TinyURL
-        const tinyUrl = `https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`;
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(tinyUrl)}`;
-        
-        const response = await fetch(proxyUrl, { 
-            signal: AbortSignal.timeout(8000) // 8 second timeout
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const shortUrl = data.contents?.trim();
-            // Validate that we got a proper TinyURL back
-            if (shortUrl && shortUrl.startsWith('https://tinyurl.com/')) {
-                return shortUrl;
-            }
-        }
-        return null;
-    } catch (error) {
-        console.error('URL shortening failed:', error);
-        return null;
-    }
-}
-
 // Open share modal
 async function openShareModal() {
     if (!shareModal) {
@@ -702,19 +672,14 @@ async function openShareModal() {
         shareTextInput.value = shareText;
     }
     
-    // Generate and shorten share link
-    const longUrl = exportMenuAsLink();
+    // Generate share link via server
     if (shareLinkInput) {
-        shareLinkInput.value = 'Generating short link...';
+        shareLinkInput.value = 'Generating link...';
         shareLinkInput.disabled = true;
-        
-        const shortUrl = await shortenUrl(longUrl);
-        
-        if (shortUrl) {
-            shareLinkInput.value = shortUrl;
-        } else {
-            // Fallback to long URL if shortening fails
-            shareLinkInput.value = longUrl;
+        try {
+            shareLinkInput.value = await exportMenuAsLink();
+        } catch (err) {
+            shareLinkInput.value = 'Failed to generate link';
         }
         shareLinkInput.disabled = false;
     }
@@ -870,20 +835,40 @@ function enableReadOnlyMode() {
 }
 
 // Check for menu in URL parameters (for sharing)
-function checkUrlForMenu() {
+async function checkUrlForMenu() {
     const urlParams = new URLSearchParams(window.location.search);
-    
-    // Check for compact read-only view parameter (?v=)
-    const compactViewParam = urlParams.get('v');
-    if (compactViewParam) {
+
+    const vParam = urlParams.get('v');
+    if (vParam) {
+        // Short ID (8 hex chars) -> fetch from server
+        if (/^[0-9a-f]{8}$/i.test(vParam)) {
+            try {
+                const res = await fetch(`/api/share/${vParam}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    menuData = data.menu || emptyMenu();
+                    updateDisplay();
+                    enableReadOnlyMode();
+                    const subtitle = document.querySelector('.subtitle');
+                    if (subtitle) {
+                        const ownerText = data.owner ? ` — ${data.owner}` : '';
+                        subtitle.innerHTML = `👨‍🍳 Chef's View${ownerText}`;
+                    }
+                    return;
+                }
+            } catch (err) {
+                console.error('Failed to load shared menu:', err);
+            }
+        }
+
+        // Legacy: long encoded compact format
         try {
-            menuData = decodeMenuCompact(compactViewParam);
+            menuData = decodeMenuCompact(vParam);
             updateDisplay();
             enableReadOnlyMode();
-            // Update header for cook's view
             const subtitle = document.querySelector('.subtitle');
             if (subtitle) {
-                subtitle.innerHTML = '👨‍🍳 Cook\'s View <span class="readonly-badge">Menu</span>';
+                subtitle.innerHTML = '👨‍🍳 Chef\'s View';
             }
             return;
         } catch (error) {
@@ -1065,7 +1050,10 @@ function setLoginLoading(loading) {
 
 function showApp(displayName) {
     currentUser = displayName;
-    if (loginScreen) loginScreen.classList.add('hidden');
+    if (loginScreen) {
+        loginScreen.classList.add('hidden');
+        loginScreen.style.display = 'none';
+    }
     if (logoutBtn) logoutBtn.style.display = 'inline-flex';
     if (userDisplayEl) {
         userDisplayEl.style.display = 'block';
@@ -1076,6 +1064,8 @@ function showApp(displayName) {
 
 function showLogin() {
     currentUser = null;
+    menuData = emptyMenu();
+    updateDisplay();
     if (loginScreen) {
         loginScreen.classList.remove('hidden');
         loginScreen.style.display = 'flex';
@@ -1244,8 +1234,7 @@ if (logoutBtn) {
     // Shared read-only URLs bypass auth
     if (urlParams.has('v') || urlParams.has('view') || urlParams.has('menu')) {
         if (loginScreen) loginScreen.style.display = 'none';
-        loadMenuFromLocal();
-        checkUrlForMenu();
+        await checkUrlForMenu();
         return;
     }
 
@@ -1255,7 +1244,7 @@ if (logoutBtn) {
         if (res.ok) {
             const data = await res.json();
             showApp(data.displayName);
-            checkUrlForMenu();
+            await checkUrlForMenu();
             return;
         }
     } catch (err) {

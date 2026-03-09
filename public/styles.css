@@ -266,7 +266,7 @@ header h1 {
 .meal-text {
     flex: 1;
     color: var(--text-primary);
-    font-size: 0.9375rem;
+    font-size: 1.125rem;
     font-weight: 400;
     line-height: 1.6;
     white-space: pre-line;
@@ -341,7 +341,7 @@ header h1 {
 }
 
 .bullet-textarea {
-    font-size: 0.9375rem;
+    font-size: 1.125rem;
     line-height: 1.8;
 }
 
@@ -602,6 +602,16 @@ header h1 {
 /* Read-only Mode Styles */
 .readonly-mode .meal-item {
     justify-content: flex-start;
+    cursor: default;
+}
+
+.readonly-mode .meal-item:hover {
+    border-color: var(--border-color);
+    background: var(--bg-primary);
+}
+
+.readonly-mode .meal-item:hover .meal-text {
+    color: var(--text-primary);
 }
 
 .readonly-mode .edit-btn {
