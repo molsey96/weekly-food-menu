@@ -1,0 +1,7 @@
+node_modules
+.git
+data
+*.md
+firestore.rules
+firebase-config.js
+.dockerignore

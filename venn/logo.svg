@@ -1,0 +1,60 @@
+
+            <svg width="110" height="30" viewBox="0 0 180 44">
+                <defs>
+                    <linearGradient
+                        id="lg1"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                    >
+                        <stop offset="0%" stopColor="#F472B6" />
+                        <stop offset="100%" stopColor="#A855F7" />
+                    </linearGradient>
+                    <linearGradient
+                        id="lg2"
+                        x1="100%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                    >
+                        <stop offset="0%" stopColor="#22D3EE" />
+                        <stop offset="100%" stopColor="#9333EA" />
+                    </linearGradient>
+                    <linearGradient
+                        id="lg3"
+                        x1="0%"
+                        y1="100%"
+                        x2="100%"
+                        y2="0%"
+                    >
+                        <stop offset="0%" stopColor="#FBBF24" />
+                        <stop offset="100%" stopColor="#E11D48" />
+                    </linearGradient>
+                </defs>
+                <circle
+                    cx="15"
+                    cy="15"
+                    r="13"
+                    fill="none"
+                    stroke="url(#lg1)"
+                    strokeWidth="1.5"
+                />
+                <circle
+                    cx="28"
+                    cy="15"
+                    r="13"
+                    fill="none"
+                    stroke="url(#lg2)"
+                    strokeWidth="1.5"
+                />
+                <circle
+                    cx="21.5"
+                    cy="26"
+                    r="13"
+                    fill="none"
+                    stroke="url(#lg3)"
+                    strokeWidth="1.5"
+                />
+            </svg>
+ 

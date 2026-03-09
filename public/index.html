@@ -12,8 +12,12 @@
 <body>
     <div class="container">
         <header>
-            <h1>🍽️ Weekly Food Menu</h1>
+            <div class="header-row">
+                <h1>🍽️ Weekly Food Menu</h1>
+                <button class="btn btn-logout" id="logoutBtn" style="display: none;">Logout</button>
+            </div>
             <p class="subtitle">Plan your meals once. Stay tension-free all week.</p>
+            <p class="user-phone" id="userPhone" style="display: none;"></p>
         </header>
 
         <div class="week-container">
@@ -176,6 +180,43 @@
             </div>
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" id="closeShareBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Screen -->
+    <div class="login-screen" id="loginScreen">
+        <div class="login-card">
+            <h1>🍽️ Weekly Food Menu</h1>
+            <p class="login-subtitle">Sign in to save and sync your weekly menu across devices.</p>
+
+            <div id="googleBtnContainer" class="google-btn-container" style="display: none;">
+                <div id="googleSignInBtn"></div>
+            </div>
+
+            <div id="authDivider" class="auth-divider" style="display: none;">
+                <span>or</span>
+            </div>
+
+            <form id="loginForm" class="login-step">
+                <input type="text" id="loginUsername" placeholder="Username" autocomplete="username" required>
+                <input type="password" id="loginPassword" placeholder="Password" autocomplete="current-password" required>
+                <button type="submit" class="btn btn-primary login-btn">Log In</button>
+                <p class="auth-toggle">Don't have an account? <button type="button" class="btn-link" id="showSignupBtn">Sign Up</button></p>
+            </form>
+
+            <form id="signupForm" class="login-step" style="display: none;">
+                <input type="text" id="signupUsername" placeholder="Choose a username" autocomplete="username" minlength="3" required>
+                <input type="password" id="signupPassword" placeholder="Password (min 6 characters)" autocomplete="new-password" minlength="6" required>
+                <input type="password" id="signupConfirm" placeholder="Confirm password" autocomplete="new-password" minlength="6" required>
+                <button type="submit" class="btn btn-primary login-btn">Create Account</button>
+                <p class="auth-toggle">Already have an account? <button type="button" class="btn-link" id="showLoginBtn">Log In</button></p>
+            </form>
+
+            <p class="login-error" id="loginError" style="display: none;"></p>
+            <div class="login-spinner" id="loginSpinner" style="display: none;">
+                <div class="spinner"></div>
+                <span>Please wait...</span>
             </div>
         </div>
     </div>

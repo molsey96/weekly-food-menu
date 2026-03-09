@@ -15,7 +15,8 @@ let copiedMenuText = '';
 // Read-only mode flag
 let isReadOnlyMode = false;
 
-// Read-only mode flag is already declared above
+// Auth state
+let currentUser = null;
 
 // DOM Elements
 const modal = document.getElementById('mealModal');
@@ -39,8 +40,8 @@ const importInput = document.getElementById('importInput');
 const cancelImportBtn = document.getElementById('cancelImportBtn');
 const confirmImportBtn = document.getElementById('confirmImportBtn');
 
-// Load menu from localStorage
-function loadMenu() {
+// Load menu from localStorage (instant, used as cache)
+function loadMenuFromLocal() {
     const saved = localStorage.getItem('weeklyMenu');
     if (saved) {
         menuData = JSON.parse(saved);
@@ -48,9 +49,40 @@ function loadMenu() {
     updateDisplay();
 }
 
-// Save menu to localStorage
+// Load menu from server, falling back to localStorage
+async function loadMenu() {
+    loadMenuFromLocal();
+
+    if (!currentUser) return;
+
+    try {
+        const res = await fetch('/api/menu');
+        if (res.ok) {
+            const data = await res.json();
+            if (data) {
+                menuData = data;
+                localStorage.setItem('weeklyMenu', JSON.stringify(menuData));
+                updateDisplay();
+            }
+        }
+    } catch (err) {
+        console.error('Server load failed, using local data:', err);
+    }
+}
+
+// Save menu to localStorage and server
 function saveMenu() {
     localStorage.setItem('weeklyMenu', JSON.stringify(menuData));
+
+    if (currentUser) {
+        fetch('/api/menu', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(menuData)
+        }).catch(err => {
+            console.error('Server save failed:', err);
+        });
+    }
 }
 
 // Generate shareable link for cook
@@ -1000,7 +1032,238 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// Initialize
-loadMenu();
-checkUrlForMenu();
+// ============================================================
+// AUTHENTICATION
+// ============================================================
+
+const loginScreen = document.getElementById('loginScreen');
+const loginForm = document.getElementById('loginForm');
+const signupForm = document.getElementById('signupForm');
+const showSignupBtn = document.getElementById('showSignupBtn');
+const showLoginBtn = document.getElementById('showLoginBtn');
+const loginError = document.getElementById('loginError');
+const loginSpinner = document.getElementById('loginSpinner');
+const logoutBtn = document.getElementById('logoutBtn');
+const userDisplayEl = document.getElementById('userPhone');
+
+function showLoginError(msg) {
+    if (loginError) {
+        loginError.textContent = msg;
+        loginError.style.display = 'block';
+    }
+}
+
+function hideLoginError() {
+    if (loginError) loginError.style.display = 'none';
+}
+
+function setLoginLoading(loading) {
+    if (loginSpinner) loginSpinner.style.display = loading ? 'flex' : 'none';
+    const btns = document.querySelectorAll('.login-btn');
+    btns.forEach(b => b.disabled = loading);
+}
+
+function showApp(displayName) {
+    currentUser = displayName;
+    if (loginScreen) loginScreen.classList.add('hidden');
+    if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+    if (userDisplayEl) {
+        userDisplayEl.style.display = 'block';
+        userDisplayEl.textContent = `Signed in as ${displayName}`;
+    }
+    loadMenu();
+}
+
+function showLogin() {
+    currentUser = null;
+    if (loginScreen) {
+        loginScreen.classList.remove('hidden');
+        loginScreen.style.display = 'flex';
+    }
+    if (logoutBtn) logoutBtn.style.display = 'none';
+    if (userDisplayEl) userDisplayEl.style.display = 'none';
+    hideLoginError();
+}
+
+// Toggle between login and signup forms
+if (showSignupBtn) {
+    showSignupBtn.addEventListener('click', () => {
+        if (loginForm) loginForm.style.display = 'none';
+        if (signupForm) signupForm.style.display = 'flex';
+        hideLoginError();
+    });
+}
+if (showLoginBtn) {
+    showLoginBtn.addEventListener('click', () => {
+        if (signupForm) signupForm.style.display = 'none';
+        if (loginForm) loginForm.style.display = 'flex';
+        hideLoginError();
+    });
+}
+
+// Username/password login
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideLoginError();
+        setLoginLoading(true);
+
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value;
+
+        try {
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            showApp(data.displayName);
+            checkUrlForMenu();
+        } catch (err) {
+            showLoginError(err.message);
+        } finally {
+            setLoginLoading(false);
+        }
+    });
+}
+
+// Username/password signup
+if (signupForm) {
+    signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideLoginError();
+
+        const username = document.getElementById('signupUsername').value.trim();
+        const password = document.getElementById('signupPassword').value;
+        const confirm = document.getElementById('signupConfirm').value;
+
+        if (password !== confirm) {
+            showLoginError('Passwords do not match.');
+            return;
+        }
+
+        setLoginLoading(true);
+
+        try {
+            const res = await fetch('/api/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            showApp(data.displayName);
+            checkUrlForMenu();
+        } catch (err) {
+            showLoginError(err.message);
+        } finally {
+            setLoginLoading(false);
+        }
+    });
+}
+
+// Google Sign-In callback (called by Google's GSI library)
+async function handleGoogleCredential(response) {
+    hideLoginError();
+    setLoginLoading(true);
+
+    try {
+        const res = await fetch('/api/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: response.credential })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        showApp(data.displayName);
+        checkUrlForMenu();
+    } catch (err) {
+        showLoginError(err.message);
+    } finally {
+        setLoginLoading(false);
+    }
+}
+
+// Load Google Sign-In if configured
+async function initGoogleSignIn() {
+    try {
+        const res = await fetch('/api/config');
+        const config = await res.json();
+        if (!config.googleClientId) return;
+
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.async = true;
+        script.onload = () => {
+            google.accounts.id.initialize({
+                client_id: config.googleClientId,
+                callback: handleGoogleCredential
+            });
+            const btnContainer = document.getElementById('googleSignInBtn');
+            if (btnContainer) {
+                google.accounts.id.renderButton(btnContainer, {
+                    theme: 'outline',
+                    size: 'large',
+                    shape: 'pill',
+                    width: 320,
+                    text: 'continue_with'
+                });
+            }
+            const container = document.getElementById('googleBtnContainer');
+            const divider = document.getElementById('authDivider');
+            if (container) container.style.display = 'flex';
+            if (divider) divider.style.display = 'flex';
+        };
+        document.head.appendChild(script);
+    } catch (err) {
+        console.error('Failed to load Google Sign-In:', err);
+    }
+}
+
+// Logout
+if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
+        showLogin();
+    });
+}
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+
+(async function init() {
+    const urlParams = new URLSearchParams(window.location.search);
+
+    // Shared read-only URLs bypass auth
+    if (urlParams.has('v') || urlParams.has('view') || urlParams.has('menu')) {
+        if (loginScreen) loginScreen.style.display = 'none';
+        loadMenuFromLocal();
+        checkUrlForMenu();
+        return;
+    }
+
+    // Check for existing session
+    try {
+        const res = await fetch('/api/me');
+        if (res.ok) {
+            const data = await res.json();
+            showApp(data.displayName);
+            checkUrlForMenu();
+            return;
+        }
+    } catch (err) {
+        console.error('Session check failed:', err);
+    }
+
+    // Not logged in -- show login screen and init Google button
+    showLogin();
+    initGoogleSignIn();
+})();
 
